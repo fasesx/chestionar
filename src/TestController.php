@@ -34,6 +34,21 @@ class TestController
                     echo json_encode($this->setRightAnswer($id));
                     break;
                 }
+                case "/test/wrong-answer": {
+                    echo json_encode($this->setWrongAnswer($id));
+                    break;
+                }
+                case "/test/oot": {
+                    echo json_encode($this->setOOT($id));
+                    break;
+                }
+                case "/test/finished": {
+                    echo json_encode($this->setFinished($id));
+                    break;
+                }
+                default:
+                    http_response_code(501);
+                    exit;
             }
         }
     }
@@ -80,6 +95,9 @@ class TestController
             if (!isset($data[$row["ID"]]["correctAnswer"])) {
                 $data[$row["ID"]]["correctAnswer"] = "";
             }
+            if($row["IMAGE"]) {
+                $data[$row["ID"]]["image"] = $row["IMAGE"];
+            }
             $data[$row["ID"]]["id"] = $row["ID"];
             $data[$row["ID"]]["question"] = $row["QUESTION"];
             $data[$row["ID"]]["answers"][$row["VARIANT"]] = $row["ANSWER"];
@@ -92,6 +110,33 @@ class TestController
     private function setRightAnswer(int $id): bool
     {
         $sql = "UPDATE tests T SET T.RIGHT = T.RIGHT + 1 WHERE ID = ?";
+
+        $stmt = $this->conn->prepare($sql);
+        
+        return $stmt->execute([$id]);
+    }
+
+    private function setWrongAnswer(int $id): bool
+    {
+        $sql = "UPDATE tests T SET T.WRONG = T.WRONG + 1 WHERE ID = ?";
+
+        $stmt = $this->conn->prepare($sql);
+        
+        return $stmt->execute([$id]);
+    }
+
+    private function setOOT(int $id): bool
+    {
+        $sql = "UPDATE tests T SET T.OOT = 1 WHERE ID = ?";
+
+        $stmt = $this->conn->prepare($sql);
+        
+        return $stmt->execute([$id]);
+    }
+
+    private function setFinished(int $id): bool
+    {
+        $sql = "UPDATE tests T SET T.FINISHED = 1 WHERE ID = ?";
 
         $stmt = $this->conn->prepare($sql);
         
