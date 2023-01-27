@@ -11,10 +11,11 @@ class TestController
 
     public function processRequest(string $http_req_type, string $method): void
     {
+        $method = explode("?", $method)[0];
+
         if ($http_req_type == 'GET') {
-            $method = explode("?", $method)[0];
             switch ($method) {
-                case "/test/code":
+                case "/test/validate":
                     echo json_encode($this->getByCode($_GET["value"]));
                     break;
                 case "/test/generate":
@@ -25,15 +26,26 @@ class TestController
                     exit;
             }
         }
+        if ($http_req_type == 'PUT') {
+            $id = explode("/", $method)[3];
+            $method = "/" . explode("/", $method)[1] . "/" . explode("/", $method)[2];
+            switch ($method) {
+                case "/test/right-answer": {
+                    echo json_encode($this->setRightAnswer($id));
+                    break;
+                }
+            }
+        }
     }
 
-    private function getByCode(string $code)
+    private function getByCode(string $code): array|false
     {
         $sql = "SELECT * FROM tests
-        WHERE CODE='$code'
-        AND FINISHED=0";
+        WHERE CODE = ?
+        AND FINISHED = 0";
 
-        $stmt = $this->conn->query($sql);
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$code]);
 
         $data = false;
 
@@ -49,6 +61,7 @@ class TestController
             $data["oot"] = (bool) $row["OOT"];
             $data["finished"] = (bool) $row["FINISHED"];
             $data["time"] = $row["TIME"];
+            $data["question_nb"] = $row["QUESTION_NB"];
         }
 
         return $data;
@@ -56,10 +69,10 @@ class TestController
 
     private function getRandomizedQuestions(int $count): array
     {
-        $sql = "SELECT RQ.ID, RQ.DESCRIPTION AS QUESTION, RQ.IMAGE AS IMAGE, A.DESCRIPTION AS ANSWER, A.VARIANT AS VARIANT, A.IS_RIGHT FROM (SELECT * FROM questions ORDER BY RAND() LIMIT $count) AS RQ JOIN answers AS A ON RQ.ID = A.QUESTION_ID ORDER BY A.VARIANT";
+        $sql = "SELECT RQ.ID, RQ.DESCRIPTION AS QUESTION, RQ.IMAGE AS IMAGE, A.DESCRIPTION AS ANSWER, A.VARIANT AS VARIANT, A.IS_RIGHT FROM (SELECT * FROM questions ORDER BY RAND() LIMIT ? ) AS RQ JOIN answers AS A ON RQ.ID = A.QUESTION_ID ORDER BY A.VARIANT";
 
-
-        $stmt = $this->conn->query($sql);
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$count]);
 
         $data = [];
 
@@ -73,6 +86,15 @@ class TestController
             $data[$row["ID"]]["correctAnswer"] = $row["IS_RIGHT"] ? $data[$row["ID"]]["correctAnswer"].$row["VARIANT"] : $data[$row["ID"]]["correctAnswer"];
         }
 
-        return $data;
+        return array_values($data);
+    }
+
+    private function setRightAnswer(int $id): bool
+    {
+        $sql = "UPDATE tests T SET T.RIGHT = T.RIGHT + 1 WHERE ID = ?";
+
+        $stmt = $this->conn->prepare($sql);
+        
+        return $stmt->execute([$id]);
     }
 }
